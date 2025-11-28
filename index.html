@@ -2,344 +2,432 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Dota 2 Timers — Local Sounds + Custom Alarms</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <title>Dota 2 Pro Timers</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  
   <style>
     :root {
-      --card-size:160px;
-      --ring-size:110px;
-      --grid-gap:6px;
-      --bg:#0b1020;
+      --bg-dark: #050505;
+      --card-bg: #121212;
     }
+
     body {
-      font-family:'Inter',sans-serif;
-      background:var(--bg);
-      color:#F3F4F6;
-      margin:0;
-      padding:18px;
-      display:flex;
-      justify-content:center;
+      font-family: 'Rajdhani', sans-serif;
+      background: #000;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
     }
-    .app {
-      width:100%;
-      max-width:1200px;
-      display:flex;
-      flex-direction:row;
-      gap:20px;
+
+    .bg-ambient {
+      position: fixed; inset: 0; z-index: -1;
+      background: radial-gradient(circle at 50% 30%, #1e293b 0%, #000000 70%);
+      pointer-events: none;
     }
-    .sidebar {
-      width:220px;
-      background:#111827;
-      border:1px solid #2b3344;
-      border-radius:0.6rem;
-      padding:12px;
-      box-shadow:0 6px 16px rgba(0,0,0,0.4);
+
+    /* --- Header & Controls --- */
+    .header-controls { position: fixed; top: 16px; right: 16px; z-index: 100; }
+    .icon-btn {
+      background: rgba(255,255,255,0.1); backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff; width: 48px; height: 48px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     }
-    .sidebar h2 { font-size:1rem; font-weight:800; margin-bottom:10px; }
-    .sidebar label { display:block; margin-bottom:8px; font-size:0.85rem; }
-    .sidebar input {
-      width:60px; margin-left:6px; padding:2px 4px;
-      border-radius:4px; border:1px solid #444;
-      background:#0b1020; color:#fff;
+    .icon-btn:hover { background: rgba(255,255,255,0.2); }
+
+    /* --- Settings Modal --- */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85); backdrop-filter: blur(12px);
+      z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
     }
-    .main { flex:1; display:flex; flex-direction:column; align-items:center; gap:12px; }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .modal-content {
+      width: 90%; max-width: 500px;
+      background: #18181b; border: 1px solid #333; border-radius: 20px;
+      padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+    }
+    .setting-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0; border-bottom: 1px solid #27272a;
+    }
+    .setting-row input {
+      background: #000; border: 1px solid #3f3f46; color: #fbbf24;
+      font-family: 'Rajdhani'; font-size: 1.3rem; font-weight: 700;
+      width: 70px; text-align: center; padding: 6px; border-radius: 6px;
+    }
+
+    /* --- Layout --- */
+    .container {
+      width: 100%; max-width: 1200px; margin: 0 auto;
+      padding: 80px 16px 40px 16px;
+      display: flex; flex-direction: column; align-items: center; gap: 24px;
+    }
+
+    /* --- Hero Card (Top Timer) --- */
+    .hero-card {
+      width: 100%; max-width: 450px;
+      background: rgba(20,20,20,0.6);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px; padding: 20px;
+      display: flex; flex-direction: column; align-items: center;
+      position: relative; overflow: hidden;
+      box-shadow: 0 10px 40px -10px rgba(0,0,0,0.6);
+    }
+    .hero-bg { position: absolute; inset: 0; z-index: -1; opacity: 0.2; transition: background 0.5s; }
+    .hero-time {
+      font-size: 4.5rem; line-height: 1; font-weight: 700;
+      text-shadow: 0 0 20px rgba(251, 191, 36, 0.3); margin: 10px 0;
+    }
+
+    /* --- Grid --- */
     .grid {
-      display:grid;
-      grid-template-columns: repeat(3, var(--card-size));
-      grid-auto-rows: var(--card-size);
-      gap: var(--grid-gap);
-      justify-content:center;
-      align-items:center;
-      margin-top:8px;
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%;
     }
-    .timer-card {
-      width:var(--card-size); height:var(--card-size);
-      border-radius:0.7rem; overflow:hidden;
-      background:#0f1724; border:1px solid #222832;
-      box-shadow:0 8px 22px rgba(0,0,0,0.45);
-      display:flex; flex-direction:column;
-      justify-content:center; align-items:center;
-      position:relative;
-      transition:filter .16s ease, transform .12s ease, box-shadow .18s ease, border .18s ease;
+    @media(min-width: 768px) {
+      .grid { grid-template-columns: repeat(3, 1fr); gap: 24px; }
     }
-    .timer-overlay { position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0.64), rgba(0,0,0,0.78)); z-index:2; pointer-events:none; }
-    .timer-content { position:relative; z-index:3; width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px; box-sizing:border-box; text-align:center; }
-    .timer-label { font-weight:800; font-size:0.92rem; color:#fff; margin-bottom:6px; text-shadow:0 1px 1px rgba(0,0,0,0.6); }
-    .ring { width:var(--ring-size); height:var(--ring-size); border-radius:50%; position:relative; display:flex; align-items:center; justify-content:center; z-index:3; background:conic-gradient(from -90deg, rgba(255,255,255,0.06) 0% 100%); box-shadow:inset 0 0 12px rgba(0,0,0,0.65); transition:background 300ms linear, box-shadow 220ms ease; }
-    .ring-inner { width:66%; height:66%; border-radius:50%; background:var(--bg); display:flex; align-items:center; justify-content:center; box-shadow:inset 0 0 10px rgba(0,0,0,0.6); }
-    .ring-time { font-weight:900; font-size:1.02rem; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,0.6); }
-    .timer-card.inactive { filter:brightness(0.55) saturate(0.7); }
-    .timer-card.inactive .ring { box-shadow:inset 0 0 16px rgba(0,0,0,0.8); background:conic-gradient(from -90deg, rgba(0,0,0,0.55) 0% 100%); }
-    .timer-card.inactive .ring-time { color:#bfc5cc; }
-    .timer-card.active { border:2px solid #ffffff; box-shadow:0 20px 48px rgba(0,0,0,0.6), 0 0 18px rgba(255,255,255,0.06) inset, 0 0 14px rgba(255,255,255,0.18); transform:translateY(-3px); }
-    .center-card { width:320px; height:320px; border-radius:1rem; background:#0f1724; border:1px solid #222832; box-shadow:0 18px 36px rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden; }
-    .hidden { display:none; }
-    .alarm-marker {
-  position: absolute;
-  width: 2px;
-  height: 50%;
-  background: #fbbf24; /* yellow marker */
-  top: 0;
-  left: 50%;
-  transform-origin: bottom center;
-  z-index: 4;
-}
+
+    /* --- Timer Card --- */
+    .card {
+      position: relative; aspect-ratio: 1 / 1;
+      border-radius: 20px; background: #000; overflow: hidden;
+      border: 2px solid rgba(255,255,255,0.1);
+      transition: all 0.3s ease;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    
+    .card-img {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; z-index: 0; transition: transform 0.5s;
+    }
+    .card-gradient {
+      position: absolute; inset: 0; z-index: 1;
+      /* Darker gradient to ensure text readability */
+      background: radial-gradient(circle, rgba(0,0,0,0.5) 30%, rgba(0,0,0,0.85) 100%);
+    }
+    
+    .card-content {
+      position: relative; z-index: 10; width: 100%; height: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+
+    .progress-container {
+      position: relative; width: 85%; height: 85%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .progress-ring {
+      width: 100%; height: 100%;
+      transform: rotate(-90deg);
+    }
+    .progress-ring circle {
+      fill: transparent; stroke-width: 5; stroke-linecap: round;
+    }
+    
+    .ring-track { stroke: rgba(255,255,255,0.1); }
+    
+    .ring-value { 
+      stroke: var(--theme-color); 
+      transition: stroke-dashoffset 0.2s linear;
+    }
+
+    .card-label {
+      font-size: 1.1rem; font-weight: 700; text-transform: uppercase;
+      color: #e4e4e7; text-shadow: 0 2px 4px #000; margin-bottom: -5px;
+    }
+    .card-time {
+      position: absolute; font-size: 3.5rem; font-weight: 700; color: #fff;
+      text-shadow: 0 4px 8px rgba(0,0,0,1);
+    }
+
+    /* --- STATE LOGIC --- */
+
+    /* 1. STANDARD STATE (Waiting) */
+    /* Not gray, but slightly dimmed so it doesn't distract too much */
+    .card.inactive {
+      opacity: 0.85; 
+      transform: scale(0.98);
+      border-color: rgba(255,255,255,0.1); 
+    }
+    .card.inactive .card-img {
+      filter: brightness(0.7) saturate(0.8); /* Slight dim, but color remains */
+    }
+    .card.inactive .ring-value {
+      filter: brightness(0.7); /* Ring is colored but not glowing */
+    }
+
+    /* 2. ACTIVE STATE (Alarm) */
+    /* Pop, Glow, Pulse */
+    .card.active {
+      opacity: 1;
+      transform: scale(1.03);
+      border-color: var(--theme-color);
+      box-shadow: 0 10px 40px -5px rgba(0,0,0,0.6), 0 0 25px var(--theme-color-dim);
+      z-index: 20;
+    }
+    .card.active .card-img {
+      filter: brightness(1.1) saturate(1.2);
+      transform: scale(1.1);
+    }
+    .card.active .ring-value {
+      filter: drop-shadow(0 0 8px var(--theme-color)); /* Neon Glow */
+    }
+    .card.active .card-time {
+      text-shadow: 0 0 15px var(--theme-color);
+    }
+
+    /* Buttons */
+    .btn {
+      border: none; padding: 12px 16px; border-radius: 10px;
+      font-weight: 700; font-family: 'Rajdhani'; font-size: 1rem;
+      cursor: pointer; color: #fff; width: 100px;
+    }
+    .btn:active { transform: scale(0.96); }
+    .hidden { display: none !important; }
+
   </style>
 </head>
 <body>
-  <div class="app">
-    <!-- Sidebar for alarm settings -->
-    <div class="sidebar">
-      <h2>Alarm Settings (seconds)</h2>
-      <form id="alarm-settings">
-        <label>Stacking Camps: <input type="number" id="stack-input" value="30"></label>
-        <label>Power Runes: <input type="number" id="runes-input" value="28"></label>
-        <label>Lotus Pool: <input type="number" id="lotus-input" value="20"></label>
-        <label>Siege Creeps: <input type="number" id="siege-input" value="0"></label>
-        <label>EXP Shrine: <input type="number" id="exp-input" value="40"></label>
-        <label>Tormentor: <input type="number" id="tormentor-input" value="45"></label>
-      </form>
-    </div>
 
-    <!-- Main timers -->
-    <div class="main">
-      <header>
-        <h1 style="font-weight:900;font-size:1.2rem;margin:0;">Dota 2 Timers</h1>
-        <div style="color:#9CA3AF;font-size:0.88rem;">Local sounds • Custom alarms • Active glow</div>
-      </header>
+  <div class="bg-ambient"></div>
+  <div class="header-controls"><button id="settings-btn" class="icon-btn">⚙️</button></div>
 
-      <!-- Pre-game countdown -->
-      <div id="countdown-card" class="center-card">
-        <div class="timer-overlay"></div>
-        <div class="timer-content" style="flex-direction:column;">
-          <div style="font-weight:900;font-size:1.05rem;color:#fbbf24;margin-bottom:8px;">Game starts in...</div>
-          <div id="ring-initial" class="ring" style="width:220px;height:220px;">
-            <div class="ring-inner" style="width:170px;height:170px;">
-              <div id="initial-time" class="ring-time" style="color:#111827;font-size:1.6rem;">01:30</div>
-            </div>
-          </div>
-          <div class="controls" style="margin-top:12px;">
-            <button id="minus5-initial" class="btn" style="background:#dc2626;color:#fff">-5s</button>
-            <button id="start-btn" class="btn" style="background:#16a34a;color:#fff">Start</button>
-            <button id="plus5-initial" class="btn" style="background:#2563eb;color:#fff">+5s</button>
-          </div>
-        </div>
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+        <h2 style="margin:0; font-size:1.8rem; color:#fbbf24;">ALARM TIMING</h2>
+        <button id="close-settings" class="icon-btn" style="width:40px; height:40px;">✕</button>
       </div>
-        <!-- Day/Night -->
-      <div id="daynight-card" class="center-card hidden">
-        <div class="timer-overlay"></div>
-        <div class="timer-content" style="flex-direction:column;">
-          <div style="font-weight:900;font-size:1.02rem;color:#fff;margin-bottom:8px;">Day / Night</div>
-          <div id="ring-daynight" class="ring" style="width:220px;height:220px;">
-            <div class="ring-inner" style="width:170px;height:170px;">
-              <div id="daynight-time" class="ring-time" style="font-size:1.6rem;">00:00</div>
-            </div>
-          </div>
-          <div class="controls" style="margin-top:12px;">
-            <button id="minus5-game" class="btn" style="background:#dc2626;color:#fff">-5s</button>
-            <button id="pause-btn" class="btn" style="background:#f59e0b;color:#111827">Pause</button>
-            <button id="resume-btn" class="btn hidden" style="background:#16a34a;color:#fff">Resume</button>
-            <button id="plus5-game" class="btn" style="background:#2563eb;color:#fff">+5s</button>
-          </div>
-        </div>
+      <p style="color:#a1a1aa; margin-bottom:16px;">Set the second mark (remaining) when the alarm sounds.</p>
+      <div id="settings-form"></div>
+      <div style="margin-top:24px; text-align:center;">
+        <button id="save-settings" class="btn" style="background:#10b981; width:100%;">DONE</button>
       </div>
-
-      <!-- Grid of timers -->
-      <div id="timers-grid" class="grid"></div>
     </div>
   </div>
 
+  <div class="container">
+    <h1 style="font-size:2.5rem; margin:0; text-align:center; letter-spacing:2px;">DOTA 2 TIMERS</h1>
+
+    <!-- Pre-Game -->
+    <div id="countdown-card" class="hero-card">
+      <div class="hero-bg" style="background:#fbbf24;"></div>
+      <div style="font-size:1.2rem; color:#fbbf24;">GAME STARTS IN</div>
+      <div id="initial-time" class="hero-time" style="color:#fbbf24;">01:30</div>
+      <div style="display:flex; gap:12px; margin-top:8px;">
+        <button id="pre-left-btn" class="btn" style="background:#3b82f6;">WAIT<br><span style="font-size:0.8em">+5s</span></button>
+        <button id="start-btn" class="btn" style="background:#10b981; flex:1;">START GAME</button>
+        <button id="pre-right-btn" class="btn" style="background:#ef4444;">SKIP<br><span style="font-size:0.8em">-5s</span></button>
+      </div>
+    </div>
+
+    <!-- Main Game Clock -->
+    <div id="daynight-card" class="hero-card hidden">
+      <div id="daynight-bg" class="hero-bg"></div>
+      <div style="font-size:1.2rem; color:#fff;">GAME CLOCK</div>
+      <div id="daynight-time" class="hero-time">00:00</div>
+      <div style="display:flex; gap:12px; margin-top:8px;">
+        <button id="game-left-btn" class="btn" style="background:#ef4444;">-5s</button>
+        <button id="pause-btn" class="btn" style="background:#f59e0b; color:#000; flex:1;">PAUSE</button>
+        <button id="resume-btn" class="btn hidden" style="background:#10b981; flex:1;">RESUME</button>
+        <button id="game-right-btn" class="btn" style="background:#3b82f6;">+5s</button>
+      </div>
+    </div>
+
+    <!-- The Grid -->
+    <div id="timers-grid" class="grid"></div>
+  </div>
+
 <script>
-// ---------- Utilities ----------
-function fmt(sec){const m=Math.floor(sec/60).toString().padStart(2,'0');const s=(sec%60).toString().padStart(2,'0');return `${m}:${s}`;}
-function ringStyle(color,frac){const pct=Math.max(0,Math.min(1,frac))*100;return `conic-gradient(from -90deg, ${color} 0% ${pct}%, rgba(255,255,255,0.12) ${pct}% 100%)`;}
-
-// ---------- Sound Preloading ----------
-const soundMap={
-  stack:"sounds/Stack.mp3",
-  tormentor:"sounds/Tormentor.mp3",
-  runes:"sounds/Runes.mp3",
-  lotus:"sounds/Lotusandbounty.mp3",
-  siege:"sounds/Catapult.mp3",
-  exp:"sounds/EXPshrines.mp3",
-  bell:"sounds/Bell.mp3"
+const soundMap = {
+  stack: "sounds/Stack.mp3",
+  tormentor: "sounds/Tormentor.mp3",
+  runes: "sounds/Runes.mp3",
+  lotus: "sounds/Lotusandbounty.mp3",
+  siege: "sounds/Catapult.mp3",
+  exp: "sounds/EXPshrines.mp3",
+  bell: "sounds/Bell.mp3"
 };
-const preloadedSounds={};
-for(const [key,path] of Object.entries(soundMap)){
-  const audio=new Audio(path);
-  audio.preload="auto";
-  audio.volume=0.3;
-  preloadedSounds[key]=audio;
-}
 
-// ---------- Playback ----------
-function playAlarm(tag){
-  // play bell first
-  const bell=preloadedSounds.bell;
-  if(bell){bell.currentTime=0;bell.play();}
-  // then play category sound
-  const sound=preloadedSounds[tag];
-  if(sound){setTimeout(()=>{sound.currentTime=0;sound.play();},500);}
-}
-
-// ---------- Timers definition ----------
-const TIMERS=[
-  {id:'stack',label:'Stacking Camps',cycleSec:60,warnBefore:30,color:'#34d399'},
-  {id:'runes',label:'Power Runes',cycleSec:120,warnBefore:28,color:'#60a5fa'},
-  {id:'lotus',label:'Lotus Pool',cycleSec:180,warnBefore:20,color:'#f59e0b'},
-  {id:'siege',label:'Siege Creeps',cycleSec:300,warnBefore:0,color:'#ef4444'},
-  {id:'exp',label:'EXP Shrine',cycleSec:420,warnBefore:40,color:'#a78bfa'},
-  {id:'tormentor',label:'Tormentor',cycleSec:1200,warnBefore:45,color:'#fb7185'}
+const TIMERS = [
+  {id:'stack',     label:'Stack Camps',   cycleSec:60,   warnBefore:30, color:'#34d399', img:'images/stack.png'},
+  {id:'runes',     label:'Power Runes',   cycleSec:120,  warnBefore:28, color:'#60a5fa', img:'images/runes.png'},
+  {id:'lotus',     label:'Lotus Pool',    cycleSec:180,  warnBefore:20, color:'#f472b6', img:'images/lotusnbounty.png'},
+  {id:'siege',     label:'Siege Creeps',  cycleSec:300,  warnBefore:0,  color:'#ef4444', img:'images/siege.png'},
+  {id:'exp',       label:'EXP Shrine',    cycleSec:420,  warnBefore:40, color:'#a78bfa', img:'images/expshrine.png'},
+  {id:'tormentor', label:'Tormentor',     cycleSec:1200, warnBefore:45, color:'#fbbf24', img:'images/tormentor.png'}
 ];
 
-// ---------- Build grid ----------
-const grid=document.getElementById('timers-grid');
-const cards={};
-TIMERS.forEach(t=>{
-  const card=document.createElement('div');
-  card.className='timer-card inactive';
-  card.innerHTML=`
-    <div class="timer-overlay"></div>
-    <div class="timer-content">
-      <div class="timer-label">${t.label}</div>
-      <div class="ring" id="ring-${t.id}">
-        <div class="ring-inner"><div class="ring-time" id="time-${t.id}">${fmt(t.cycleSec)}</div></div>
+// Audio
+const audioCache = {};
+for(const [k, v] of Object.entries(soundMap)){
+  const a = new Audio(v); a.volume = 0.5; audioCache[k] = a;
+}
+function playSound(type) {
+  if(audioCache.bell) { audioCache.bell.currentTime=0; audioCache.bell.play().catch(()=>{}); }
+  if(audioCache[type]) { setTimeout(() => { audioCache[type].currentTime=0; audioCache[type].play().catch(()=>{}); }, 600); }
+}
+
+const RADIUS = 45;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+function fmt(s){ return Math.floor(s/60).toString().padStart(2,'0')+':'+(s%60).toString().padStart(2,'0'); }
+
+// Build UI
+const grid = document.getElementById('timers-grid');
+const settingsForm = document.getElementById('settings-form');
+const cards = {};
+
+TIMERS.forEach(t => {
+  // Settings
+  const row = document.createElement('div');
+  row.className = 'setting-row';
+  row.innerHTML = `<label>${t.label}</label><input type="number" id="input-${t.id}" value="${t.warnBefore}">`;
+  settingsForm.appendChild(row);
+
+  // Card
+  const el = document.createElement('div');
+  el.className = 'card inactive';
+  el.style.setProperty('--theme-color', t.color);
+  el.style.setProperty('--theme-color-dim', t.color + '60');
+  
+  el.innerHTML = `
+    <img src="${t.img}" class="card-img" alt="${t.label}">
+    <div class="card-gradient"></div>
+    <div class="card-content">
+      <div class="card-label" style="color:${t.color}">${t.label}</div>
+      <div class="progress-container">
+        <svg class="progress-ring" viewBox="0 0 100 100">
+          <circle class="ring-track" cx="50" cy="50" r="${RADIUS}"></circle>
+          <circle class="ring-value" id="ring-${t.id}" cx="50" cy="50" r="${RADIUS}" 
+            stroke-dasharray="${CIRCUMFERENCE} ${CIRCUMFERENCE}" stroke-dashoffset="0"></circle>
+        </svg>
+        <div class="card-time" id="time-${t.id}">${fmt(t.cycleSec)}</div>
       </div>
-    </div>`;
-  grid.appendChild(card);
-  cards[t.id]={cardEl:card,ringEl:card.querySelector(`#ring-${t.id}`),timeEl:card.querySelector(`#time-${t.id}`),color:t.color};
+    </div>
+  `;
+  grid.appendChild(el);
+
+  cards[t.id] = {
+    el, 
+    time: el.querySelector(`#time-${t.id}`),
+    ring: el.querySelector(`#ring-${t.id}`),
+    cycle: t.cycleSec,
+    isActive: false
+  };
 });
 
-// ---------- Sidebar input hook ----------
-document.getElementById('alarm-settings').addEventListener('input',()=>{
-  TIMERS.forEach(t=>{
-    const input=document.getElementById(`${t.id}-input`);
-    if(input){t.warnBefore=parseInt(input.value,10);}
+// Settings Logic
+const modal = document.getElementById('settings-modal');
+document.getElementById('settings-btn').onclick = () => modal.classList.add('open');
+document.getElementById('close-settings').onclick = () => modal.classList.remove('open');
+document.getElementById('save-settings').onclick = () => {
+  TIMERS.forEach(t => {
+    const val = parseInt(document.getElementById(`input-${t.id}`).value);
+    if(!isNaN(val)) t.warnBefore = val;
   });
-});
-
-// ---------- Pre-game countdown ----------
-let initialCountdown=90,initialLeft=initialCountdown,countdownRunning=false;
-const initialTimeEl=document.getElementById('initial-time');
-const ringInitial=document.getElementById('ring-initial');
-function updateInitialUI(){initialTimeEl.textContent=fmt(initialLeft);ringInitial.style.background=ringStyle('#fbbf24',initialLeft/initialCountdown);}
-document.getElementById('minus5-initial').onclick=()=>{if(!countdownRunning)return;initialLeft=Math.max(1,initialLeft-5);updateInitialUI();};
-document.getElementById('plus5-initial').onclick=()=>{if(!countdownRunning)return;initialLeft=Math.min(600,initialLeft+5);updateInitialUI();};
-document.getElementById('start-btn').onclick=()=>{
-  countdownRunning=true;initialLeft=initialCountdown;updateInitialUI();
-  const tick=setInterval(()=>{
-    if(!countdownRunning){clearInterval(tick);return;}
-    initialLeft--;updateInitialUI();
-    if(initialLeft<=0){clearInterval(tick);document.getElementById('countdown-card').classList.add('hidden');document.getElementById('daynight-card').classList.remove('hidden');startGame();}
-  },1000);
+  modal.classList.remove('open');
 };
 
-// ---------- Game model ----------
-let gameElapsed=0,paused=false;
-const cycles={};
-const daynightTime=document.getElementById('daynight-time');
-const ringDayNight=document.getElementById('ring-daynight');
+// Game Logic
+let gameTime = 0;
+let isPaused = false;
+const timerStates = {};
+TIMERS.forEach(t => timerStates[t.id] = { start: 0, hasWarned: false });
 
-function refreshDayNight(){
-  daynightTime.textContent=fmt(gameElapsed);
-  const secIntoBlock=gameElapsed%600;
-  const remainingToMark=600-secIntoBlock;
-  const isDay=Math.floor(gameElapsed/600)%2===0;
-  ringDayNight.style.background=ringStyle(isDay?'#facc15':'#22d3ee',remainingToMark/600);
+function updateTimers() {
+  TIMERS.forEach(t => {
+    const st = timerStates[t.id];
+    const elapsed = gameTime - st.start;
+    let remain = t.cycleSec - (elapsed % t.cycleSec);
+    if(remain <= 0) remain = t.cycleSec;
+
+    // Text & Ring
+    cards[t.id].time.textContent = fmt(remain);
+    const offset = CIRCUMFERENCE * (1 - (remain / t.cycleSec));
+    cards[t.id].ring.style.strokeDashoffset = offset;
+
+    // Active State Logic
+    let trigger = false;
+    if (t.warnBefore > 0 && remain === t.warnBefore && !st.hasWarned) trigger = true;
+    if (t.warnBefore === 0 && elapsed > 0 && elapsed % t.cycleSec === 0 && !st.hasWarned) trigger = true;
+
+    if (trigger) {
+      playSound(t.id);
+      st.hasWarned = true;
+      cards[t.id].isActive = true;
+      cards[t.id].el.classList.remove('inactive');
+      cards[t.id].el.classList.add('active');
+    }
+
+    // Deactivate when timer resets
+    if (cards[t.id].isActive && remain === t.cycleSec && st.hasWarned && elapsed > t.warnBefore) {
+       cards[t.id].isActive = false;
+       st.hasWarned = false;
+       st.start = gameTime;
+       cards[t.id].el.classList.remove('active');
+       cards[t.id].el.classList.add('inactive');
+    }
+    
+    // Safety
+    if (elapsed > 0 && elapsed % t.cycleSec === 0) st.start = gameTime;
+  });
+
+  const isDay = Math.floor(gameTime / 300) % 2 === 0;
+  document.getElementById('daynight-time').textContent = fmt(gameTime);
+  document.getElementById('daynight-bg').style.background = isDay ? '#fbbf24' : '#3b82f6';
 }
 
-function refreshTimers(){
-  TIMERS.forEach(t=>{
-    const c=cycles[t.id];
-    const elapsedInCycle=gameElapsed-c.startGameSec;
-    let remaining=t.cycleSec-(elapsedInCycle%t.cycleSec);
-    if(remaining<=0||remaining>t.cycleSec)remaining=t.cycleSec;
-    cards[t.id].timeEl.textContent=fmt(remaining);
-    cards[t.id].ringEl.style.background=ringStyle(cards[t.id].color,remaining/t.cycleSec);
-    if(c.highlightedUntil&&gameElapsed>=c.highlightedUntil){
-      cards[t.id].cardEl.classList.remove('active');cards[t.id].cardEl.classList.add('inactive');
-      c.highlightedUntil=null;c.warned=false;
-    }
-    if(elapsedInCycle%t.cycleSec===0&&elapsedInCycle>0&&!c.highlightedUntil){
-      cards[t.id].cardEl.classList.remove('active');cards[t.id].cardEl.classList.add('inactive');
-      c.warned=false;
-    }
-  });
+function startGameClock() {
+  gameTime = 0;
+  isPaused = false;
+  TIMERS.forEach(t => timerStates[t.id] = { start: 0, hasWarned: false });
+  updateTimers();
+  setInterval(() => { if(!isPaused) { gameTime++; updateTimers(); } }, 1000);
 }
 
-function startGame(){
-  gameElapsed = 0;
-  paused = false;
-  TIMERS.forEach(t=>{
-    cycles[t.id] = {
-      startGameSec: gameElapsed,
-      cycleSec: t.cycleSec,
-      warned: false,
-      highlightedUntil: null
-    };
-  });
-  refreshDayNight();
-  refreshTimers();
+// Pre-Game
+let preTime = 90;
+let preRunning = false;
+const preEl = document.getElementById('initial-time');
+function updatePre() { preEl.textContent = fmt(preTime); }
 
-  setInterval(()=>{
-    if(!paused) gameElapsed++;
-    refreshDayNight();
+document.getElementById('pre-left-btn').onclick = () => { if(preRunning) { preTime += 5; updatePre(); } };
+document.getElementById('pre-right-btn').onclick = () => { if(preRunning) { preTime = Math.max(1, preTime-5); updatePre(); } };
 
-    if(gameElapsed % 600 === 541) playAlarm('bell');
-
-    TIMERS.forEach(t=>{
-      const c = cycles[t.id];
-      const elapsedInCycle = gameElapsed - c.startGameSec;
-      let remaining = t.cycleSec - (elapsedInCycle % t.cycleSec);
-      if(remaining <= 0 || remaining > t.cycleSec) remaining = t.cycleSec;
-
-      if(t.warnBefore > 0 && remaining === t.warnBefore && !c.warned){
-        playAlarm(t.id);
-        c.warned = true;
-        c.highlightedUntil = gameElapsed + remaining;
-        cards[t.id].cardEl.classList.remove('inactive');
-        cards[t.id].cardEl.classList.add('active');
-      }
-
-      if(t.warnBefore === 0 && elapsedInCycle % t.cycleSec === 0 && elapsedInCycle > 0 && !c.warned){
-        playAlarm(t.id);
-        c.warned = true;
-        c.highlightedUntil = gameElapsed + t.cycleSec;
-        cards[t.id].cardEl.classList.remove('inactive');
-        cards[t.id].cardEl.classList.add('active');
-      }
-
-      if(elapsedInCycle % t.cycleSec === 0 && elapsedInCycle > 0){
-        c.startGameSec = gameElapsed;
-      }
-    });
-
-    refreshTimers();
+document.getElementById('start-btn').onclick = function() {
+  if(preRunning) return;
+  preRunning = true;
+  this.style.opacity = "0.5"; this.textContent = "RUNNING...";
+  const tick = setInterval(() => {
+    preTime--;
+    updatePre();
+    if(preTime <= 0) {
+      clearInterval(tick);
+      document.getElementById('countdown-card').classList.add('hidden');
+      document.getElementById('daynight-card').classList.remove('hidden');
+      startGameClock();
+    }
   }, 1000);
-}
-// ---------- Pause/Resume ----------
-document.getElementById('pause-btn').onclick = () => {
-  paused = true;
-  document.getElementById('pause-btn').classList.add('hidden');
-  document.getElementById('resume-btn').classList.remove('hidden');
 };
 
-document.getElementById('resume-btn').onclick = () => {
-  paused = false;
-  document.getElementById('resume-btn').classList.add('hidden');
-  document.getElementById('pause-btn').classList.remove('hidden');
-};
-
-// ---------- Adjust game time ----------
-function adjustGameTime(deltaSec) {
-  gameElapsed = Math.max(0, gameElapsed + deltaSec);
-  refreshDayNight();
-  refreshTimers();
-}
-
-document.getElementById('minus5-game').onclick = () => adjustGameTime(-5);
-document.getElementById('plus5-game').onclick = () => adjustGameTime(+5);
+// Controls
+document.getElementById('pause-btn').onclick = () => { isPaused = true; document.getElementById('pause-btn').classList.add('hidden'); document.getElementById('resume-btn').classList.remove('hidden'); };
+document.getElementById('resume-btn').onclick = () => { isPaused = false; document.getElementById('resume-btn').classList.add('hidden'); document.getElementById('pause-btn').classList.remove('hidden'); };
+document.getElementById('game-right-btn').onclick = () => { gameTime += 5; updateTimers(); };
+document.getElementById('game-left-btn').onclick = () => { gameTime = Math.max(0, gameTime-5); updateTimers(); };
 </script>
 </body>
 </html>
