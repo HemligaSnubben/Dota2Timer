@@ -4,7 +4,9 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
   <title>Dota 2 Pro Timers</title>
+  
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
   
   <style>
@@ -17,13 +19,11 @@
       font-family: 'Rajdhani', sans-serif;
       background: #000;
       color: #fff;
-      margin: 0;
-      padding: 0;
+      margin: 0; padding: 0;
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow-x: hidden;
-      -webkit-tap-highlight-color: transparent;
+      display: flex; flex-direction: column;
+      overflow-x: hidden; -webkit-tap-highlight-color: transparent;
+      user-select: none;
     }
 
     .bg-ambient {
@@ -32,402 +32,623 @@
       pointer-events: none;
     }
 
-    /* --- Header & Controls --- */
-    .header-controls { position: fixed; top: 16px; right: 16px; z-index: 100; }
+    /* --- Header --- */
+    .header-controls { 
+      position: fixed; top: 16px; right: 16px; z-index: 100; display:flex; gap:10px; 
+    }
     .icon-btn {
       background: rgba(255,255,255,0.1); backdrop-filter: blur(8px);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: #fff; width: 48px; height: 48px; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.2); color: #fff;
+      width: 42px; height: 42px; border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 1.5rem; cursor: pointer;
+      font-size: 1.2rem; cursor: pointer;
       box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      transition: background 0.2s;
     }
     .icon-btn:hover { background: rgba(255,255,255,0.2); }
 
-    /* --- Settings Modal --- */
+    /* --- Modal --- */
     .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.85); backdrop-filter: blur(12px);
-      z-index: 200;
-      display: flex; align-items: center; justify-content: center;
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(12px);
+      z-index: 200; display: flex; align-items: center; justify-content: center;
       opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
     }
     .modal-overlay.open { opacity: 1; pointer-events: auto; }
     .modal-content {
-      width: 90%; max-width: 500px;
+      width: 90%; max-width: 450px; max-height: 80vh; overflow-y: auto;
       background: #18181b; border: 1px solid #333; border-radius: 20px;
       padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.8);
     }
     .setting-row {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 12px 0; border-bottom: 1px solid #27272a;
+      padding: 10px 0; border-bottom: 1px solid #27272a;
     }
     .setting-row input {
       background: #000; border: 1px solid #3f3f46; color: #fbbf24;
-      font-family: 'Rajdhani'; font-size: 1.3rem; font-weight: 700;
-      width: 70px; text-align: center; padding: 6px; border-radius: 6px;
+      font-family: 'Rajdhani'; font-size: 1.2rem; font-weight: 700;
+      width: 60px; text-align: center; padding: 4px; border-radius: 6px;
     }
 
-    /* --- Layout --- */
+    /* --- Main Layout --- */
     .container {
       width: 100%; max-width: 1200px; margin: 0 auto;
-      padding: 80px 16px 40px 16px;
-      display: flex; flex-direction: column; align-items: center; gap: 24px;
-    }
-
-    /* --- Hero Card (Top Timer) --- */
-    .hero-card {
-      width: 100%; max-width: 450px;
-      background: rgba(20,20,20,0.6);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 24px; padding: 20px;
-      display: flex; flex-direction: column; align-items: center;
-      position: relative; overflow: hidden;
-      box-shadow: 0 10px 40px -10px rgba(0,0,0,0.6);
-    }
-    .hero-bg { position: absolute; inset: 0; z-index: -1; opacity: 0.2; transition: background 0.5s; }
-    .hero-time {
-      font-size: 4.5rem; line-height: 1; font-weight: 700;
-      text-shadow: 0 0 20px rgba(251, 191, 36, 0.3); margin: 10px 0;
-    }
-
-    /* --- Grid --- */
-    .grid {
-      display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%;
-    }
-    @media(min-width: 768px) {
-      .grid { grid-template-columns: repeat(3, 1fr); gap: 24px; }
-    }
-
-    /* --- Timer Card --- */
-    .card {
-      position: relative; aspect-ratio: 1 / 1;
-      border-radius: 20px; background: #000; overflow: hidden;
-      border: 2px solid rgba(255,255,255,0.1);
-      transition: all 0.3s ease;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 70px 16px 40px 16px;
+      display: flex; flex-direction: column; align-items: center; gap: 20px;
     }
     
+    h1 {
+      font-size: 2rem; margin: 0; text-align: center; letter-spacing: 2px;
+      text-shadow: 0 0 10px rgba(255,255,255,0.2);
+    }
+
+    /* --- The Grid --- */
+    .grid {
+      display: grid;
+      /* Responsive: Auto-fit columns min 150px wide */
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px; width: 100%;
+      grid-auto-flow: dense; /* Allows dragging to flow naturally */
+    }
+    @media(min-width: 640px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+    @media(min-width: 1024px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+
+    /* --- Card Styles --- */
+    .grid-card {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      background: #000; border-radius: 20px; overflow: hidden;
+      border: 2px solid rgba(255,255,255,0.1);
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: grab; touch-action: none;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .grid-card:active { cursor: grabbing; }
+
+    /* Wide Mode (2x1) */
+    .grid-card.wide {
+      grid-column: span 2;
+      aspect-ratio: 2 / 1;
+    }
+
+    /* Resize Handle */
+    .resize-handle {
+      position: absolute; top: 6px; right: 6px; z-index: 60;
+      width: 28px; height: 28px;
+      background: rgba(0,0,0,0.6); border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.8); cursor: pointer;
+      opacity: 0; transition: opacity 0.2s;
+      font-size: 0.9rem;
+    }
+    .grid-card:hover .resize-handle { opacity: 1; }
+
+    /* Visual Elements */
     .card-img {
       position: absolute; inset: 0; width: 100%; height: 100%;
-      object-fit: cover; z-index: 0; transition: transform 0.5s;
+      object-fit: cover; z-index: 0; transition: filter 0.3s, transform 0.3s;
     }
     .card-gradient {
       position: absolute; inset: 0; z-index: 1;
-      /* Darker gradient to ensure text readability */
-      background: radial-gradient(circle, rgba(0,0,0,0.5) 30%, rgba(0,0,0,0.85) 100%);
+      background: radial-gradient(circle, rgba(0,0,0,0.4) 30%, rgba(0,0,0,0.9) 100%);
     }
-    
     .card-content {
       position: relative; z-index: 10; width: 100%; height: 100%;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
+      pointer-events: none; /* Let clicks pass to handle */
     }
 
-    .progress-container {
-      position: relative; width: 85%; height: 85%;
-      display: flex; align-items: center; justify-content: center;
+    /* Labels & Times */
+    .card-label { 
+      font-size: 1rem; font-weight: 700; text-transform: uppercase; 
+      color: #e4e4e7; text-shadow: 0 2px 4px #000; margin-bottom: -2px; 
     }
-    .progress-ring {
-      width: 100%; height: 100%;
-      transform: rotate(-90deg);
+    .card-time { 
+      position: absolute; font-size: 3rem; font-weight: 700; color: #fff; 
+      text-shadow: 0 4px 8px rgba(0,0,0,1); 
     }
-    .progress-ring circle {
-      fill: transparent; stroke-width: 5; stroke-linecap: round;
+    /* Main Timer text is slightly larger */
+    .main-time { font-size: 3.5rem; }
+
+    /* Progress Ring */
+    .progress-container { 
+      position: relative; display: flex; align-items: center; justify-content: center; 
+      /* Ensures glow doesn't get cut off */
+      padding: 10px; overflow: visible;
     }
-    
+    .progress-ring { transform: rotate(-90deg); overflow: visible; }
+    .progress-ring circle { fill: transparent; stroke-linecap: round; }
     .ring-track { stroke: rgba(255,255,255,0.1); }
+    .ring-value { transition: stroke-dashoffset 0.2s linear; }
+
+    /* --- STATES --- */
+    /* Standard (Inactive) */
+    .inactive { transform: scale(1); }
+    .inactive .card-img { filter: brightness(0.6) saturate(0.8); }
     
-    .ring-value { 
-      stroke: var(--theme-color); 
-      transition: stroke-dashoffset 0.2s linear;
-    }
-
-    .card-label {
-      font-size: 1.1rem; font-weight: 700; text-transform: uppercase;
-      color: #e4e4e7; text-shadow: 0 2px 4px #000; margin-bottom: -5px;
-    }
-    .card-time {
-      position: absolute; font-size: 3.5rem; font-weight: 700; color: #fff;
-      text-shadow: 0 4px 8px rgba(0,0,0,1);
-    }
-
-    /* --- STATE LOGIC --- */
-
-    /* 1. STANDARD STATE (Waiting) */
-    /* Not gray, but slightly dimmed so it doesn't distract too much */
-    .card.inactive {
-      opacity: 0.85; 
-      transform: scale(0.98);
-      border-color: rgba(255,255,255,0.1); 
-    }
-    .card.inactive .card-img {
-      filter: brightness(0.7) saturate(0.8); /* Slight dim, but color remains */
-    }
-    .card.inactive .ring-value {
-      filter: brightness(0.7); /* Ring is colored but not glowing */
-    }
-
-    /* 2. ACTIVE STATE (Alarm) */
-    /* Pop, Glow, Pulse */
-    .card.active {
-      opacity: 1;
-      transform: scale(1.03);
+    /* Active (Alarm) */
+    .active {
+      transform: scale(1.02); z-index: 20;
       border-color: var(--theme-color);
-      box-shadow: 0 10px 40px -5px rgba(0,0,0,0.6), 0 0 25px var(--theme-color-dim);
-      z-index: 20;
+      /* Tighter glow, less bloom */
+      box-shadow: 0 5px 20px -5px rgba(0,0,0,0.8), 0 0 10px var(--theme-color-dim);
     }
-    .card.active .card-img {
-      filter: brightness(1.1) saturate(1.2);
-      transform: scale(1.1);
+    .active .card-img { filter: brightness(1.1) saturate(1.2); transform: scale(1.05); }
+    .active .ring-value { 
+      stroke: var(--theme-color); 
+      filter: drop-shadow(0 0 3px var(--theme-color)); /* Crisp neon line */
     }
-    .card.active .ring-value {
-      filter: drop-shadow(0 0 8px var(--theme-color)); /* Neon Glow */
-    }
-    .card.active .card-time {
-      text-shadow: 0 0 15px var(--theme-color);
-    }
+    .active .card-time { text-shadow: 0 0 8px var(--theme-color); }
 
-    /* Buttons */
-    .btn {
-      border: none; padding: 12px 16px; border-radius: 10px;
-      font-weight: 700; font-family: 'Rajdhani'; font-size: 1rem;
-      cursor: pointer; color: #fff; width: 100px;
+    /* --- CONTROLS (Inside Main Card) --- */
+    .controls-overlay {
+      position: absolute; bottom: 8px; left: 0; right: 0;
+      display: flex; justify-content: center; gap: 6px;
+      z-index: 50; pointer-events: auto;
     }
-    .btn:active { transform: scale(0.96); }
+    .ctrl-btn {
+      background: rgba(255,255,255,0.15); backdrop-filter: blur(4px);
+      border: 1px solid rgba(255,255,255,0.2); color: #fff;
+      border-radius: 6px; font-weight: 700; cursor: pointer;
+      font-family: 'Rajdhani'; font-size: 0.9rem;
+      padding: 4px 10px; min-width: 40px;
+      transition: background 0.1s;
+    }
+    .ctrl-btn:hover { background: rgba(255,255,255,0.3); }
+    .ctrl-btn:active { transform: scale(0.95); }
+    
+    /* Adjust buttons based on width */
+    .grid-card:not(.wide) .ctrl-text { display: none; } /* Hide text on small tiles */
+    .grid-card.wide .ctrl-btn { padding: 6px 16px; font-size: 1rem; }
+
+    /* Colors */
+    .btn-green { background: rgba(34, 197, 94, 0.4); border-color: rgba(34, 197, 94, 0.5); }
+    .btn-red { background: rgba(239, 68, 68, 0.4); border-color: rgba(239, 68, 68, 0.5); }
+    .btn-blue { background: rgba(59, 130, 246, 0.4); border-color: rgba(59, 130, 246, 0.5); }
+    .btn-yellow { background: rgba(234, 179, 8, 0.4); border-color: rgba(234, 179, 8, 0.5); color:#fff;}
+
     .hidden { display: none !important; }
+    .sortable-ghost { opacity: 0.3; background: #333; border: 2px dashed #666; }
 
   </style>
 </head>
 <body>
 
   <div class="bg-ambient"></div>
-  <div class="header-controls"><button id="settings-btn" class="icon-btn">⚙️</button></div>
+  
+  <div class="header-controls">
+    <button id="reset-btn" class="icon-btn" title="Reset Layout">↺</button>
+    <button id="settings-btn" class="icon-btn" title="Settings"⚙️</button>
+  </div>
 
   <!-- Settings Modal -->
   <div id="settings-modal" class="modal-overlay">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
-        <h2 style="margin:0; font-size:1.8rem; color:#fbbf24;">ALARM TIMING</h2>
-        <button id="close-settings" class="icon-btn" style="width:40px; height:40px;">✕</button>
+        <h2 style="margin:0; font-size:1.8rem; color:#fbbf24;">ALARM SETTINGS</h2>
+        <button id="close-settings" class="icon-btn" style="width:32px; height:32px; font-size:1rem;">✕</button>
       </div>
-      <p style="color:#a1a1aa; margin-bottom:16px;">Set the second mark (remaining) when the alarm sounds.</p>
       <div id="settings-form"></div>
-      <div style="margin-top:24px; text-align:center;">
-        <button id="save-settings" class="btn" style="background:#10b981; width:100%;">DONE</button>
+      <div style="margin-top:20px;">
+        <button id="save-settings" class="ctrl-btn btn-green" style="width:100%; padding:10px;">SAVE</button>
       </div>
     </div>
   </div>
 
   <div class="container">
-    <h1 style="font-size:2.5rem; margin:0; text-align:center; letter-spacing:2px;">DOTA 2 TIMERS</h1>
-
-    <!-- Pre-Game -->
-    <div id="countdown-card" class="hero-card">
-      <div class="hero-bg" style="background:#fbbf24;"></div>
-      <div style="font-size:1.2rem; color:#fbbf24;">GAME STARTS IN</div>
-      <div id="initial-time" class="hero-time" style="color:#fbbf24;">01:30</div>
-      <div style="display:flex; gap:12px; margin-top:8px;">
-        <button id="pre-left-btn" class="btn" style="background:#3b82f6;">WAIT<br><span style="font-size:0.8em">+5s</span></button>
-        <button id="start-btn" class="btn" style="background:#10b981; flex:1;">START GAME</button>
-        <button id="pre-right-btn" class="btn" style="background:#ef4444;">SKIP<br><span style="font-size:0.8em">-5s</span></button>
-      </div>
-    </div>
-
-    <!-- Main Game Clock -->
-    <div id="daynight-card" class="hero-card hidden">
-      <div id="daynight-bg" class="hero-bg"></div>
-      <div style="font-size:1.2rem; color:#fff;">GAME CLOCK</div>
-      <div id="daynight-time" class="hero-time">00:00</div>
-      <div style="display:flex; gap:12px; margin-top:8px;">
-        <button id="game-left-btn" class="btn" style="background:#ef4444;">-5s</button>
-        <button id="pause-btn" class="btn" style="background:#f59e0b; color:#000; flex:1;">PAUSE</button>
-        <button id="resume-btn" class="btn hidden" style="background:#10b981; flex:1;">RESUME</button>
-        <button id="game-right-btn" class="btn" style="background:#3b82f6;">+5s</button>
-      </div>
-    </div>
-
-    <!-- The Grid -->
-    <div id="timers-grid" class="grid"></div>
+    <h1>DOTA 2 TIMERS</h1>
+    <!-- UNIFIED GRID -->
+    <div id="app-grid" class="grid"></div>
   </div>
 
 <script>
-const soundMap = {
+// --- ASSETS ---
+const sounds = {
   stack: "sounds/Stack.mp3",
   tormentor: "sounds/Tormentor.mp3",
-  runes: "sounds/Runes.mp3",
   lotus: "sounds/Lotusandbounty.mp3",
   siege: "sounds/Catapult.mp3",
   exp: "sounds/EXPshrines.mp3",
-  bell: "sounds/Bell.mp3"
+  bell: "sounds/Bell.mp3",
+  day: "sounds/daytime.mp3",
+  night: "sounds/nighttime.mp3",
+  water: "sounds/waterrunes.mp3",
+  power: "sounds/powerrune.mp3",
+  t1: "sounds/tier1n.mp3",
+  t2: "sounds/tier2n.mp3",
+  t3: "sounds/tier3n.mp3",
+  t4: "sounds/tier4n.mp3",
+  t5: "sounds/tier5n.mp3"
 };
 
-const TIMERS = [
-  {id:'stack',     label:'Stack Camps',   cycleSec:60,   warnBefore:30, color:'#34d399', img:'images/stack.png'},
-  {id:'runes',     label:'Power Runes',   cycleSec:120,  warnBefore:28, color:'#60a5fa', img:'images/runes.png'},
-  {id:'lotus',     label:'Lotus Pool',    cycleSec:180,  warnBefore:20, color:'#f472b6', img:'images/lotusnbounty.png'},
-  {id:'siege',     label:'Siege Creeps',  cycleSec:300,  warnBefore:0,  color:'#ef4444', img:'images/siege.png'},
-  {id:'exp',       label:'EXP Shrine',    cycleSec:420,  warnBefore:40, color:'#a78bfa', img:'images/expshrine.png'},
-  {id:'tormentor', label:'Tormentor',     cycleSec:1200, warnBefore:45, color:'#fbbf24', img:'images/tormentor.png'}
-];
-
-// Audio
 const audioCache = {};
-for(const [k, v] of Object.entries(soundMap)){
+for(const [k, v] of Object.entries(sounds)){
   const a = new Audio(v); a.volume = 0.5; audioCache[k] = a;
 }
-function playSound(type) {
+
+function play(key) {
   if(audioCache.bell) { audioCache.bell.currentTime=0; audioCache.bell.play().catch(()=>{}); }
-  if(audioCache[type]) { setTimeout(() => { audioCache[type].currentTime=0; audioCache[type].play().catch(()=>{}); }, 600); }
+  if(audioCache[key]) { setTimeout(() => { audioCache[key].currentTime=0; audioCache[key].play().catch(()=>{}); }, 600); }
+}
+function playDirect(key) {
+  if(audioCache[key]) { audioCache[key].currentTime=0; audioCache[key].play().catch(()=>{}); }
 }
 
-const RADIUS = 45;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+// --- DATA CONFIGURATION ---
+// "main" is the special Main Timer. Others are standard.
+const DEFAULT_ORDER = ['main', 'stack', 'runes', 'lotus', 'siege', 'neutral', 'exp', 'tormentor'];
 
-function fmt(s){ return Math.floor(s/60).toString().padStart(2,'0')+':'+(s%60).toString().padStart(2,'0'); }
+const TIMERS_DATA = {
+  main:     { type: 'hero', label: 'Pregame', color: '#fbbf24', img: 'images/day.png' }, // dynamic
+  stack:    { type: 'grid', label:'Stack Camps',   cycleSec:60,   warnBefore:30, color:'#34d399', img:'images/stack.png'},
+  runes:    { type: 'grid', label:'Runes',         cycleSec:120,  warnBefore:20, color:'#60a5fa', img:'images/runes.png'},
+  lotus:    { type: 'grid', label:'Lotus Pool',    cycleSec:180,  warnBefore:20, color:'#f472b6', img:'images/lotusnbounty.png'},
+  siege:    { type: 'grid', label:'Siege Creeps',  cycleSec:300,  warnBefore:0,  color:'#ef4444', img:'images/siege.png'},
+  neutral:  { type: 'grid', label:'Neutral Items', cycleSec:300,  warnBefore:60, color:'#a3e635', img:'images/tier1n.png'},
+  exp:      { type: 'grid', label:'EXP Shrine',    cycleSec:420,  warnBefore:40, color:'#a78bfa', img:'images/expshrine.png'},
+  tormentor:{ type: 'grid', label:'Tormentor',     cycleSec:1200, warnBefore:45, color:'#fbbf24', img:'images/tormentor.png'}
+};
 
-// Build UI
-const grid = document.getElementById('timers-grid');
+const NEUTRAL_TIERS = [
+  { min: 5,  img: 'images/tier1n.png', sound: 't1' },
+  { min: 15, img: 'images/tier2n.png', sound: 't2' },
+  { min: 25, img: 'images/tier3n.png', sound: 't3' },
+  { min: 35, img: 'images/tier4n.png', sound: 't4' },
+  { min: 60, img: 'images/tier5n.png', sound: 't5' }
+];
+
+// --- RENDER HELPERS ---
+const RADIUS = 40; 
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS; // ~251
+function fmt(s){ 
+  const m = Math.floor(s/60).toString().padStart(2,'0');
+  const sRem = (s%60).toString().padStart(2,'0');
+  return `${m}:${sRem}`;
+}
+
+const grid = document.getElementById('app-grid');
 const settingsForm = document.getElementById('settings-form');
 const cards = {};
+const timerStates = {};
 
-TIMERS.forEach(t => {
-  // Settings
-  const row = document.createElement('div');
-  row.className = 'setting-row';
-  row.innerHTML = `<label>${t.label}</label><input type="number" id="input-${t.id}" value="${t.warnBefore}">`;
-  settingsForm.appendChild(row);
+// Load Layout
+let savedOrder = JSON.parse(localStorage.getItem('dota_timer_order_v3')) || DEFAULT_ORDER;
+let savedSizes = JSON.parse(localStorage.getItem('dota_timer_sizes_v3')) || { main: 'wide' }; // Main wide by default
 
-  // Card
-  const el = document.createElement('div');
-  el.className = 'card inactive';
-  el.style.setProperty('--theme-color', t.color);
-  el.style.setProperty('--theme-color-dim', t.color + '60');
+// Fallback if missing keys
+if(!savedOrder.includes('main')) savedOrder = DEFAULT_ORDER;
+
+function initGrid() {
+  grid.innerHTML = '';
   
-  el.innerHTML = `
-    <img src="${t.img}" class="card-img" alt="${t.label}">
-    <div class="card-gradient"></div>
-    <div class="card-content">
-      <div class="card-label" style="color:${t.color}">${t.label}</div>
-      <div class="progress-container">
-        <svg class="progress-ring" viewBox="0 0 100 100">
-          <circle class="ring-track" cx="50" cy="50" r="${RADIUS}"></circle>
-          <circle class="ring-value" id="ring-${t.id}" cx="50" cy="50" r="${RADIUS}" 
-            stroke-dasharray="${CIRCUMFERENCE} ${CIRCUMFERENCE}" stroke-dashoffset="0"></circle>
-        </svg>
-        <div class="card-time" id="time-${t.id}">${fmt(t.cycleSec)}</div>
-      </div>
-    </div>
-  `;
-  grid.appendChild(el);
+  savedOrder.forEach(id => {
+    const t = TIMERS_DATA[id];
+    if(!t) return;
 
-  cards[t.id] = {
-    el, 
-    time: el.querySelector(`#time-${t.id}`),
-    ring: el.querySelector(`#ring-${t.id}`),
-    cycle: t.cycleSec,
-    isActive: false
-  };
+    // Create Settings Input (Only for Grid types)
+    if(t.type === 'grid') {
+      const row = document.createElement('div');
+      row.className = 'setting-row';
+      row.innerHTML = `<label>${t.label}</label><input type="number" id="input-${id}" value="${t.warnBefore}">`;
+      settingsForm.appendChild(row);
+      timerStates[id] = { start: 0, hasWarned: false };
+    }
+
+    // Build Card
+    const el = document.createElement('div');
+    el.className = 'grid-card inactive';
+    el.setAttribute('data-id', id);
+    if(savedSizes[id] === 'wide') el.classList.add('wide');
+    
+    // Set colors
+    el.style.setProperty('--theme-color', t.color);
+    el.style.setProperty('--theme-color-dim', t.color + '60');
+
+    // Controls HTML (Special for Main)
+    let controlsHtml = '';
+    if(id === 'main') {
+      controlsHtml = `
+        <div class="controls-overlay">
+          <button class="ctrl-btn btn-blue" onmousedown="handleCtrl('${id}', 'left', event)">-5</button>
+          <button class="ctrl-btn btn-green" onmousedown="handleCtrl('${id}', 'mid', event)">
+             <span class="ctrl-icon">▶</span><span class="ctrl-text">&nbsp;START</span>
+          </button>
+          <button class="ctrl-btn btn-red" onmousedown="handleCtrl('${id}', 'right', event)">+5</button>
+        </div>
+      `;
+    }
+
+    el.innerHTML = `
+      <div class="resize-handle" onmousedown="toggleSize('${id}', event)" title="Toggle Size">⤢</div>
+      <img src="${t.img}" id="img-${id}" class="card-img" alt="${t.label}">
+      <div class="card-gradient"></div>
+      
+      <div class="card-content">
+        <div class="card-label" id="lbl-${id}" style="color:${t.color}">${t.label}</div>
+        <div class="progress-container">
+          <svg class="progress-ring" width="100" height="100">
+            <circle class="ring-track" cx="50" cy="50" r="${RADIUS}" stroke-width="5"></circle>
+            <circle class="ring-value" id="ring-${id}" cx="50" cy="50" r="${RADIUS}" stroke-width="5" 
+              style="stroke:${t.color};" stroke-dasharray="${CIRCUMFERENCE} ${CIRCUMFERENCE}" stroke-dashoffset="0">
+            </circle>
+          </svg>
+          <div class="card-time ${id==='main'?'main-time':''}" id="time-${id}">
+            ${id==='main' ? '01:30' : fmt(t.cycleSec)}
+          </div>
+        </div>
+      </div>
+      ${controlsHtml}
+    `;
+    
+    grid.appendChild(el);
+
+    cards[id] = {
+      el, 
+      time: el.querySelector(`#time-${id}`),
+      ring: el.querySelector(`#ring-${id}`),
+      img: el.querySelector(`#img-${id}`),
+      lbl: el.querySelector(`#lbl-${id}`),
+      cycle: t.cycleSec || 0,
+      warn: t.warnBefore || 0,
+      isActive: false
+    };
+  });
+}
+
+// --- DRAG & DROP ---
+new Sortable(grid, {
+  animation: 150,
+  ghostClass: 'sortable-ghost',
+  handle: '.grid-card', 
+  filter: '.resize-handle, .ctrl-btn', // Don't drag when clicking buttons
+  preventOnFilter: false,
+  onEnd: () => {
+    const newOrder = [];
+    grid.querySelectorAll('.grid-card').forEach(el => newOrder.push(el.getAttribute('data-id')));
+    localStorage.setItem('dota_timer_order_v3', JSON.stringify(newOrder));
+  }
 });
 
-// Settings Logic
+// --- INTERACTIONS ---
+window.toggleSize = function(id, e) {
+  e.stopPropagation(); // Stop drag start
+  const el = document.querySelector(`.grid-card[data-id="${id}"]`);
+  el.classList.toggle('wide');
+  if(el.classList.contains('wide')) savedSizes[id] = 'wide';
+  else delete savedSizes[id];
+  localStorage.setItem('dota_timer_sizes_v3', JSON.stringify(savedSizes));
+};
+
+document.getElementById('reset-btn').onclick = () => {
+  localStorage.removeItem('dota_timer_order_v3');
+  localStorage.removeItem('dota_timer_sizes_v3');
+  location.reload();
+};
+
+initGrid();
+
+// --- LOGIC STATES ---
+let preTime = 90;
+let preRunning = false;
+let gameStarted = false;
+let gameTime = 0;
+let isPaused = false;
+let dayNightWarned = false;
+
+// --- MAIN CONTROLLER ---
+window.handleCtrl = function(id, action, e) {
+  e.stopPropagation();
+  if(id !== 'main') return;
+
+  // PRE-GAME LOGIC
+  if(!gameStarted) {
+    if(action === 'mid') {
+      // Start Button
+      if(preRunning) return;
+      preRunning = true;
+      e.target.closest('button').style.opacity = 0.5;
+      
+      const tick = setInterval(() => {
+        preTime--;
+        cards['main'].time.textContent = fmt(preTime);
+        // Ring progress for pregame?
+        const offset = CIRCUMFERENCE * (1 - (preTime/90));
+        cards['main'].ring.style.strokeDashoffset = offset;
+        
+        if(preTime <= 0) {
+          clearInterval(tick);
+          switchModeToGame();
+        }
+      }, 1000);
+    }
+    else if(action === 'right') { 
+      // Skip (-5s in count)
+      if(preRunning) { preTime = Math.max(1, preTime-5); cards['main'].time.textContent = fmt(preTime); }
+    }
+    else if(action === 'left') {
+      // Wait (+5s)
+      if(preRunning) { preTime += 5; cards['main'].time.textContent = fmt(preTime); }
+    }
+  } 
+  // IN-GAME LOGIC
+  else {
+    if(action === 'mid') {
+      // Pause/Resume
+      isPaused = !isPaused;
+      const btn = e.target.closest('button');
+      if(isPaused) {
+        btn.classList.replace('btn-green', 'btn-yellow');
+        btn.innerHTML = '<span class="ctrl-icon">||</span><span class="ctrl-text">&nbsp;PAUSE</span>';
+      } else {
+        btn.classList.replace('btn-yellow', 'btn-green');
+        btn.innerHTML = '<span class="ctrl-icon">▶</span><span class="ctrl-text">&nbsp;RESUME</span>';
+      }
+    }
+    else if(action === 'right') {
+      gameTime += 5; updateGameLoop();
+    }
+    else if(action === 'left') {
+      gameTime = Math.max(0, gameTime-5); updateGameLoop();
+    }
+  }
+};
+
+function switchModeToGame() {
+  gameStarted = true;
+  gameTime = 0;
+  
+  // Update Main Card Visuals
+  const c = cards['main'];
+  c.lbl.textContent = "GAME TIME";
+  c.time.textContent = "00:00";
+  c.img.src = "images/day.png";
+  
+  // Reset buttons
+  const ctrlDiv = c.el.querySelector('.controls-overlay');
+  ctrlDiv.innerHTML = `
+    <button class="ctrl-btn btn-red" onmousedown="handleCtrl('main', 'left', event)">-5</button>
+    <button class="ctrl-btn btn-yellow" onmousedown="handleCtrl('main', 'mid', event)">
+       <span class="ctrl-icon">||</span><span class="ctrl-text">&nbsp;PAUSE</span>
+    </button>
+    <button class="ctrl-btn btn-blue" onmousedown="handleCtrl('main', 'right', event)">+5</button>
+  `;
+
+  // Init timers
+  Object.keys(timerStates).forEach(k => timerStates[k] = { start: 0, hasWarned: false });
+  updateGameLoop();
+  
+  setInterval(() => {
+    if(!isPaused && gameStarted) {
+      gameTime++;
+      updateGameLoop();
+    }
+  }, 1000);
+}
+
+function updateGameLoop() {
+  const isDay = Math.floor(gameTime / 300) % 2 === 0;
+  const timeInBlock = gameTime % 300;
+  
+  // --- MAIN CARD (Day/Night) ---
+  const cMain = cards['main'];
+  cMain.time.textContent = fmt(gameTime);
+  
+  // Ring fills 0->100 over 5 mins
+  const dnOffset = CIRCUMFERENCE * (1 - (timeInBlock / 300));
+  cMain.ring.style.strokeDashoffset = dnOffset;
+
+  // Theme Update
+  const targetTheme = isDay ? '#fbbf24' : '#60a5fa';
+  cMain.el.style.setProperty('--theme-color', targetTheme);
+  cMain.el.style.setProperty('--theme-color-dim', targetTheme+'60');
+  cMain.ring.style.stroke = targetTheme;
+  cMain.img.src = isDay ? 'images/day.png' : 'images/night.png';
+
+  // Day/Night Warning (4:40)
+  if(timeInBlock === 280 && !dayNightWarned) {
+    playDirect(isDay ? 'night' : 'day');
+    dayNightWarned = true;
+    cMain.el.classList.remove('inactive'); cMain.el.classList.add('active');
+    setTimeout(() => { cMain.el.classList.remove('active'); cMain.el.classList.add('inactive'); }, 10000);
+  }
+  if(timeInBlock === 0) dayNightWarned = false;
+
+  // --- GRID TIMERS ---
+  Object.keys(cards).forEach(id => {
+    if(id === 'main') return;
+    const t = TIMERS_DATA[id];
+    const card = cards[id];
+    const st = timerStates[id];
+    
+    // Rune override
+    if(id === 'runes') {
+      card.lbl.textContent = (gameTime < 240) ? "WATER RUNES" : "POWER RUNES";
+    }
+
+    // Neutral logic
+    let neutralTarget = 0;
+    let nextTierObj = null;
+    if(id === 'neutral') {
+      nextTierObj = NEUTRAL_TIERS.find(n => (n.min * 60) > gameTime);
+      if(nextTierObj) {
+        neutralTarget = nextTierObj.min * 60;
+        card.img.src = nextTierObj.img;
+        t.cycleSec = neutralTarget; 
+      } else {
+        card.time.textContent = "MAX";
+        card.ring.style.strokeDashoffset = CIRCUMFERENCE;
+        return; 
+      }
+    }
+
+    // Math
+    let elapsed = 0, remain = 0;
+    if(id === 'neutral') {
+      const prevTierMin = NEUTRAL_TIERS[NEUTRAL_TIERS.indexOf(nextTierObj)-1]?.min || 0;
+      const interval = (nextTierObj.min - prevTierMin) * 60;
+      const progress = (gameTime - (prevTierMin*60)) / interval;
+      card.ring.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+      remain = neutralTarget - gameTime;
+    } else {
+      elapsed = gameTime - st.start;
+      remain = t.cycleSec - (elapsed % t.cycleSec);
+      if(remain <= 0) remain = t.cycleSec;
+      card.ring.style.strokeDashoffset = CIRCUMFERENCE * (1 - (remain / t.cycleSec));
+      
+      if(id === 'runes' && elapsed > 0 && elapsed % 120 === 0) st.start = gameTime;
+    }
+    
+    card.time.textContent = fmt(remain);
+
+    // Trigger Logic
+    let trigger = false;
+    let soundKey = id;
+
+    if(id === 'neutral') {
+      if(remain === 60 && !st.hasWarned) {
+        trigger = true;
+        soundKey = nextTierObj.sound;
+      }
+    } else if (id === 'runes') {
+       if(remain === t.warnBefore && !st.hasWarned) {
+         trigger = true;
+         soundKey = (gameTime < 240) ? 'water' : 'power';
+       }
+    } else {
+       if (t.warnBefore > 0 && remain === t.warnBefore && !st.hasWarned) trigger = true;
+       if (t.warnBefore === 0 && elapsed > 0 && elapsed % t.cycleSec === 0 && !st.hasWarned) trigger = true;
+    }
+
+    if (trigger) {
+      if(id === 'runes' || id === 'neutral') playDirect(soundKey);
+      else play(soundKey);
+
+      st.hasWarned = true;
+      card.isActive = true;
+      card.el.classList.remove('inactive'); card.el.classList.add('active');
+    }
+
+    if (card.isActive && remain === (id==='neutral'?0:t.cycleSec) && elapsed > t.warnBefore + 5) {
+       card.isActive = false;
+       st.hasWarned = false;
+       if(id !== 'runes' && id !== 'neutral') st.start = gameTime;
+       card.el.classList.remove('active'); card.el.classList.add('inactive');
+    }
+    if(id === 'neutral' && remain <= 0) st.hasWarned = false; 
+  });
+}
+
+// Settings Modal
 const modal = document.getElementById('settings-modal');
 document.getElementById('settings-btn').onclick = () => modal.classList.add('open');
 document.getElementById('close-settings').onclick = () => modal.classList.remove('open');
 document.getElementById('save-settings').onclick = () => {
-  TIMERS.forEach(t => {
-    const val = parseInt(document.getElementById(`input-${t.id}`).value);
-    if(!isNaN(val)) t.warnBefore = val;
+  Object.keys(TIMERS_DATA).forEach(id => {
+    const el = document.getElementById(`input-${id}`);
+    if(el) TIMERS_DATA[id].warnBefore = parseInt(el.value);
   });
   modal.classList.remove('open');
 };
 
-// Game Logic
-let gameTime = 0;
-let isPaused = false;
-const timerStates = {};
-TIMERS.forEach(t => timerStates[t.id] = { start: 0, hasWarned: false });
-
-function updateTimers() {
-  TIMERS.forEach(t => {
-    const st = timerStates[t.id];
-    const elapsed = gameTime - st.start;
-    let remain = t.cycleSec - (elapsed % t.cycleSec);
-    if(remain <= 0) remain = t.cycleSec;
-
-    // Text & Ring
-    cards[t.id].time.textContent = fmt(remain);
-    const offset = CIRCUMFERENCE * (1 - (remain / t.cycleSec));
-    cards[t.id].ring.style.strokeDashoffset = offset;
-
-    // Active State Logic
-    let trigger = false;
-    if (t.warnBefore > 0 && remain === t.warnBefore && !st.hasWarned) trigger = true;
-    if (t.warnBefore === 0 && elapsed > 0 && elapsed % t.cycleSec === 0 && !st.hasWarned) trigger = true;
-
-    if (trigger) {
-      playSound(t.id);
-      st.hasWarned = true;
-      cards[t.id].isActive = true;
-      cards[t.id].el.classList.remove('inactive');
-      cards[t.id].el.classList.add('active');
-    }
-
-    // Deactivate when timer resets
-    if (cards[t.id].isActive && remain === t.cycleSec && st.hasWarned && elapsed > t.warnBefore) {
-       cards[t.id].isActive = false;
-       st.hasWarned = false;
-       st.start = gameTime;
-       cards[t.id].el.classList.remove('active');
-       cards[t.id].el.classList.add('inactive');
-    }
-    
-    // Safety
-    if (elapsed > 0 && elapsed % t.cycleSec === 0) st.start = gameTime;
-  });
-
-  const isDay = Math.floor(gameTime / 300) % 2 === 0;
-  document.getElementById('daynight-time').textContent = fmt(gameTime);
-  document.getElementById('daynight-bg').style.background = isDay ? '#fbbf24' : '#3b82f6';
-}
-
-function startGameClock() {
-  gameTime = 0;
-  isPaused = false;
-  TIMERS.forEach(t => timerStates[t.id] = { start: 0, hasWarned: false });
-  updateTimers();
-  setInterval(() => { if(!isPaused) { gameTime++; updateTimers(); } }, 1000);
-}
-
-// Pre-Game
-let preTime = 90;
-let preRunning = false;
-const preEl = document.getElementById('initial-time');
-function updatePre() { preEl.textContent = fmt(preTime); }
-
-document.getElementById('pre-left-btn').onclick = () => { if(preRunning) { preTime += 5; updatePre(); } };
-document.getElementById('pre-right-btn').onclick = () => { if(preRunning) { preTime = Math.max(1, preTime-5); updatePre(); } };
-
-document.getElementById('start-btn').onclick = function() {
-  if(preRunning) return;
-  preRunning = true;
-  this.style.opacity = "0.5"; this.textContent = "RUNNING...";
-  const tick = setInterval(() => {
-    preTime--;
-    updatePre();
-    if(preTime <= 0) {
-      clearInterval(tick);
-      document.getElementById('countdown-card').classList.add('hidden');
-      document.getElementById('daynight-card').classList.remove('hidden');
-      startGameClock();
-    }
-  }, 1000);
-};
-
-// Controls
-document.getElementById('pause-btn').onclick = () => { isPaused = true; document.getElementById('pause-btn').classList.add('hidden'); document.getElementById('resume-btn').classList.remove('hidden'); };
-document.getElementById('resume-btn').onclick = () => { isPaused = false; document.getElementById('resume-btn').classList.add('hidden'); document.getElementById('pause-btn').classList.remove('hidden'); };
-document.getElementById('game-right-btn').onclick = () => { gameTime += 5; updateTimers(); };
-document.getElementById('game-left-btn').onclick = () => { gameTime = Math.max(0, gameTime-5); updateTimers(); };
 </script>
 </body>
 </html>
